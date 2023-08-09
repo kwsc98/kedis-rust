@@ -1,0 +1,15 @@
+[package]
+name = "kedis-rust"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "kedis-server"
+path = "src/bin/server.rs"
+
+
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+structopt = "0.3.14"
+tracing = "0.1.13"
+bytes = "1"
