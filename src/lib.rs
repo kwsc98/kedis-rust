@@ -2,6 +2,10 @@ pub mod server;
 pub mod db;
 pub mod buffer;
 pub mod frame;
+pub mod shutdown;
+pub mod command;
+pub mod cmd;
+
 
 pub const DEFAULT_PORT: &str = "6379";
 

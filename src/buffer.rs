@@ -30,8 +30,8 @@ impl Buffer {
     }
 
     fn parse_frame(&mut self) -> crate::Result<Option<Frame>> {
-        let mut buf = Cursor::new(&self.buffer[..]);
-        Frame
+        let mut _buf = Cursor::new(&self.buffer[..]);
+        Ok(None)
     }
 
 }

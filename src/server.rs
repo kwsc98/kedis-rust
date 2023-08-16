@@ -9,7 +9,8 @@ use tokio::{
 };
 use tracing::{error, info};
 
-use crate::{MAX_CONNECTIONS, buffer::Buffer};
+use crate::{MAX_CONNECTIONS, buffer::Buffer, shutdown::Shutdown, command::Command};
+use crate::db::Db;
 
 #[derive(Debug)]
 struct Listener {
@@ -22,10 +23,11 @@ struct Listener {
 
 struct Handler {
     buffer: Buffer,
+    db: Db,
     limit_connections: Arc<Semaphore>,
+    shutdown: Shutdown,
     _shutdown_complete: mpsc::Sender<()>,
 }
-
 
 
 pub async fn run(listener: TcpListener, shutdown: impl Future) {
@@ -57,40 +59,56 @@ pub async fn run(listener: TcpListener, shutdown: impl Future) {
     drop(shutdown_complete_tx);
     let _ = shutdown_complete_rx.recv().await;
 }
-
-
-
 impl Listener {
-   async fn run(&mut self) -> crate::Result<()> {
-       loop {
-           self.limit_connections.acquire().await.unwrap().forget();
-           let socket = self.accept().await?;
-           let handler = Handler {
-                buffer : Buffer {  },
-                limit_connections : self.limit_connections.clone(),
-                _shutdown_complete : self.shutdown_complete_tx.clone()
-           };
-           tokio::spawn(async move {
-              // Process the connection. If an error is encountered, log it.
-              if let Err(err) = handler.run().await {
-                  error!(cause = ?err, "connection error");
-              }
-          });
-       }
-   }
-   async fn accept(&mut self) -> crate::Result<TcpStream> {
-     let mut backoff = 1;
-     loop {
-         match self.listener.accept().await {
-             Ok((socket, _)) => return Ok(socket),
-             Err(err) => {
-                 if backoff > 64 {
-                     return Err(err.into());
-                 }
-             }
-         }
-         time::sleep(Duration::from_secs(backoff)).await;
-         backoff *= 2;
-     }
- }
+    async fn run(&mut self) -> crate::Result<()> {
+        loop {
+            self.limit_connections.acquire().await.unwrap().forget();
+            let socket = self.accept().await?;
+            let mut handler = Handler {
+                buffer: Buffer::new(socket),
+                db: Db{},
+                shutdown: Shutdown::new(self.notify_shutdown.subscribe()),
+                limit_connections: self.limit_connections.clone(),
+                _shutdown_complete: self.shutdown_complete_tx.clone(),
+            };
+            tokio::spawn(async move {
+                // Process the connection. If an error is encountered, log it.
+                if let Err(err) = handler.run().await {
+                    error!(cause = ?err, "connection error");
+                }
+            });
+        }
+    }
+    async fn accept(&mut self) -> crate::Result<TcpStream> {
+        let mut backoff = 1;
+        loop {
+            match self.listener.accept().await {
+                Ok((socket, _)) => return Ok(socket),
+                Err(err) => {
+                    if backoff > 64 {
+                        return Err(err.into());
+                    }
+                }
+            }
+            time::sleep(Duration::from_secs(backoff)).await;
+            backoff *= 2;
+        }
+    }
+}
+impl Handler {
+    async fn run(&mut self) -> crate::Result<()> {
+        while !self.shutdown.is_shutdown() {
+            let frame = tokio::select! {
+                res = self.buffer.read_frame() => res?,
+                _ = self.shutdown.recv() => {
+                    return Ok(());
+                }
+            };
+            if let Some(frame) = frame {
+                let cmd = Command::from_frame(&frame)?;
+                cmd.apply(&self.db,&mut self.buffer,&mut self.shutdown).await;
+            }
+        }
+        return Ok(());
+    }
 }

@@ -1,6 +1,6 @@
 use std::{io::Cursor, string::FromUtf8Error};
 
-use bytes::{Bytes, Buf};
+use bytes::Buf;
 
 #[derive(Debug)]
 pub enum Error {
@@ -11,14 +11,13 @@ pub enum Error {
 }
 
 
-#[derive(Clone, Debug)]
 pub(crate) enum Frame {
     Simple(String),
     Error(String),
     Integer(u64),
-    Bulk(Bytes),
-    Null,
-    Array(Vec<Frame>)
+    Bulk(String),
+    Array(Vec<Frame>),
+    Null
 }
 
 impl Frame {
@@ -48,7 +47,7 @@ fn get_line(src: &mut Cursor<&[u8]>) -> Result<String, Error> {
     for i in start..end {
         if array[i] == b'\r' && array[i + 1] == b'\n' {
             src.set_position((i + 2) as u64);
-            let str_vec = (&array[start..i]).to_vec();
+            let str_vec = (&src.get_ref()[start..i]).to_vec();
             let string = String::from_utf8(str_vec)?;
             return Ok(string);
         }
