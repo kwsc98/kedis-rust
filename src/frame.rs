@@ -1,4 +1,5 @@
-use std::{io::Cursor, string::FromUtf8Error};
+use std::{io::Cursor};
+use std::string::FromUtf8Error;
 
 use bytes::Buf;
 
@@ -11,7 +12,7 @@ pub enum Error {
 }
 
 
-pub(crate) enum Frame {
+pub enum Frame {
     Simple(String),
     Error(String),
     Integer(u64),
@@ -25,21 +26,21 @@ impl Frame {
 }
 
 
-
+#[allow(dead_code)]
 fn pop_first_u8(src: &mut Cursor<&[u8]>) -> Result<u8, Error> {
     if !src.has_remaining() {
         return Err(Error::Incomplete);
     }
     return Ok(src.get_u8());
 }
-
+#[allow(dead_code)]
 fn peek_first_u8(src: &mut Cursor<&[u8]>) -> Result<u8, Error> {
     if !src.has_remaining() {
         return Err(Error::Incomplete);
     }
     return Ok(src.chunk()[0]);
 }
-
+#[allow(dead_code)]
 fn get_line(src: &mut Cursor<&[u8]>) -> Result<String, Error> {
     let start = src.position() as usize;
     let array = src.get_ref();

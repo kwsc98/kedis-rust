@@ -24,7 +24,7 @@ struct Listener {
 struct Handler {
     buffer: Buffer,
     db: Db,
-    limit_connections: Arc<Semaphore>,
+    _limit_connections: Arc<Semaphore>,
     shutdown: Shutdown,
     _shutdown_complete: mpsc::Sender<()>,
 }
@@ -68,7 +68,7 @@ impl Listener {
                 buffer: Buffer::new(socket),
                 db: Db{},
                 shutdown: Shutdown::new(self.notify_shutdown.subscribe()),
-                limit_connections: self.limit_connections.clone(),
+                _limit_connections: self.limit_connections.clone(),
                 _shutdown_complete: self.shutdown_complete_tx.clone(),
             };
             tokio::spawn(async move {
