@@ -5,12 +5,13 @@ use tokio::{
         broadcast::{self},
         mpsc::{self},
         Semaphore,
-    }, time,
+    },
+    time,
 };
-use tracing::{error, info};
+use tracing::{debug, error, info};
 
-use crate::{MAX_CONNECTIONS, buffer::Buffer, shutdown::Shutdown, command::Command};
 use crate::db::Db;
+use crate::{buffer::Buffer, command::Command, shutdown::Shutdown, MAX_CONNECTIONS};
 
 #[derive(Debug)]
 struct Listener {
@@ -24,11 +25,10 @@ struct Listener {
 struct Handler {
     buffer: Buffer,
     db: Db,
-    _limit_connections: Arc<Semaphore>,
+    limit_connections: Arc<Semaphore>,
     shutdown: Shutdown,
     _shutdown_complete: mpsc::Sender<()>,
 }
-
 
 pub async fn run(listener: TcpListener, shutdown: impl Future) {
     let (shutdown_complete_tx, shutdown_complete_rx) = mpsc::channel(1);
@@ -64,17 +64,18 @@ impl Listener {
         loop {
             self.limit_connections.acquire().await.unwrap().forget();
             let socket = self.accept().await?;
+            debug!("receive new connect");
             let mut handler = Handler {
                 buffer: Buffer::new(socket),
-                db: Db{},
+                db: Db {},
                 shutdown: Shutdown::new(self.notify_shutdown.subscribe()),
-                _limit_connections: self.limit_connections.clone(),
+                limit_connections: self.limit_connections.clone(),
                 _shutdown_complete: self.shutdown_complete_tx.clone(),
             };
             tokio::spawn(async move {
                 // Process the connection. If an error is encountered, log it.
                 if let Err(err) = handler.run().await {
-                    error!(cause = ?err, "connection error");
+                    error!(cause = ?err, "handler error");
                 }
             });
         }
@@ -106,9 +107,15 @@ impl Handler {
             };
             if let Some(frame) = frame {
                 let cmd = Command::from_frame(&frame)?;
-                cmd.apply(&self.db,&mut self.buffer,&mut self.shutdown).await;
+                cmd.apply(&self.db, &mut self.buffer, &mut self.shutdown)
+                    .await?;
             }
         }
         return Ok(());
+    }
+}
+impl Drop for Handler {
+    fn drop(&mut self) {
+        self.limit_connections.add_permits(1);
     }
 }

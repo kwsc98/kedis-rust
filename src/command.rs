@@ -24,10 +24,16 @@ impl<'a> Command<'a> {
     }
     pub(crate) async fn apply(
         self,
-        _db: &Db,
-        _dst: &mut Buffer,
+        db: &Db,
+        buffer: &mut Buffer,
         _shutdown: &mut Shutdown,
-    ) {}
+    ) -> crate::Result<()> {
+        match self {
+            Command::Get(cmd) => cmd.apply(db,buffer).await,
+            Command::Set(cmd) => cmd.apply(db,buffer).await,
+            Command::Unknown(cmd) => cmd.apply(db,buffer).await
+        }
+    }
 }
 
 pub fn get_frame_by_index(frame: &Frame, index: usize) -> crate::Result<&Frame> {
@@ -41,7 +47,10 @@ pub fn get_frame_by_index(frame: &Frame, index: usize) -> crate::Result<&Frame> 
 pub fn get_command_name(frame: &Frame) -> crate::Result<String> {
     return match get_frame_by_index(frame, 0)? {
         Frame::Simple(str) => Ok(str.clone()),
-        Frame::Bulk(str) => Ok(str.clone()),
+        Frame::Bulk(bytes) => {
+            let str = std::str::from_utf8(&bytes[..])?;
+            Ok(String::from(str))
+        },
         _ => Err("frame is error type".into()),
     };
 }

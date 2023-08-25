@@ -13,7 +13,8 @@ impl Unknown {
         return Ok(Unknown { _command_name });
     }
 
-    pub async fn apply(self, _db: &Db, _dst: &mut Buffer) -> crate::Result<()> {
-        todo!()
+    pub async fn apply(self, db: &Db, buffer: &mut Buffer) -> crate::Result<()> {
+        buffer.write_frame(&Frame::Integer(1)).await?;
+        Ok(())
     }
 }
