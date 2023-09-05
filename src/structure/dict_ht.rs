@@ -1,5 +1,6 @@
-use core::fmt;
 use std::hash::{BuildHasher, Hash, Hasher};
+
+#[derive(Debug)]
 pub struct DictHt<K, V, H> {
     hash_builder: H,
     pub dict_entry_array: Vec<Option<Box<DictEntry<K, V>>>>,
@@ -25,8 +26,7 @@ impl<K, V> DictEntry<K, V> {
 
 impl<K, V, H: BuildHasher> DictHt<K, V, H>
 where
-    K: Hash + PartialEq + fmt::Debug,
-    V: fmt::Debug,
+    K: Hash + PartialEq
 {
     pub fn new(size: usize, hash_builder: H) -> Self {
         let mut dict_entry_array = vec![];

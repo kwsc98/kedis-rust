@@ -1,8 +1,9 @@
+use crate::frame::Error::Other;
+use bytes::{Buf, Bytes};
 use std::io::Cursor;
 use std::num::TryFromIntError;
+use std::str::FromStr;
 use std::string::FromUtf8Error;
-use bytes::{Buf, Bytes};
-use crate::frame::Error::Other;
 
 #[derive(Debug)]
 pub enum Error {
@@ -24,15 +25,9 @@ pub enum Frame {
 impl Frame {
     pub fn parse(src: &mut Cursor<&[u8]>) -> Result<Frame, Error> {
         return match pop_first_u8(src)? {
-            b'+' => {
-                Ok(Frame::Simple(get_line(src)?))
-            }
-            b'-' => {
-                Ok(Frame::Simple(get_line(src)?))
-            }
-            b':' => {
-                Ok(Frame::Integer(get_decimal(src)?))
-            }
+            b'+' => Ok(Frame::Simple(get_line(src)?)),
+            b'-' => Ok(Frame::Simple(get_line(src)?)),
+            b':' => Ok(Frame::Integer(get_decimal(src)?)),
             b'$' => {
                 if b'-' == peek_first_u8(src)? {
                     let line = get_line(src)?;
@@ -69,6 +64,27 @@ impl Frame {
             actual => Err(format!("protocol error; invalid frame type byte `{}`", actual).into()),
         };
     }
+
+    pub fn to_string(&self) -> String {
+        return match self {
+            Frame::Simple(simple) => simple.to_string(),
+            Frame::Error(error) => error.to_string(),
+            Frame::Integer(integer) => integer.to_string(),
+            Frame::Bulk(bulk) => std::str::from_utf8(bulk.chunk()).unwrap().to_string(),
+            Frame::Array(array) => {
+                let mut temp = String::from("[");
+                for item in array.iter().enumerate() {
+                    temp.push_str(&item.1.to_string()[..]);
+                    if item.0 < array.len() - 1 {
+                        temp.push_str("||");
+                    }
+                }
+                temp.push_str("]");
+                temp
+            }
+            Frame::Null => String::from("NULL"),
+        };
+    }
 }
 
 fn pop_first_u8(src: &mut Cursor<&[u8]>) -> Result<u8, Error> {
@@ -78,7 +94,7 @@ fn pop_first_u8(src: &mut Cursor<&[u8]>) -> Result<u8, Error> {
     return Ok(src.get_u8());
 }
 
-fn peek_first_u8(src: & Cursor<&[u8]>) -> Result<u8, Error> {
+fn peek_first_u8(src: &Cursor<&[u8]>) -> Result<u8, Error> {
     if !src.has_remaining() {
         return Err(Error::Incomplete);
     }
@@ -104,7 +120,7 @@ fn get_decimal(src: &mut Cursor<&[u8]>) -> Result<u64, Error> {
     let str = get_line(src)?;
     return match str.parse::<u64>() {
         Ok(u64) => Ok(u64),
-        Err(_) => Err(Other("convert decimal error".into()))
+        Err(_) => Err(Other("convert decimal error".into())),
     };
 }
 
@@ -138,5 +154,4 @@ impl From<TryFromIntError> for Error {
     fn from(_src: TryFromIntError) -> Error {
         "protocol error; invalid frame format".into()
     }
-
 }

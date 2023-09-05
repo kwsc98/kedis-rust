@@ -77,12 +77,12 @@ impl Buffer {
             }
             Frame::Integer(data) => {
                 self.stream.write_u8(b':').await?;
-                self.stream.write_u64(*data).await?;
+                self.stream.write_all(data.to_string().as_bytes()).await?;
                 self.stream.write_all(b"\r\n").await?;
             }
             Frame::Bulk(data) => {
                 self.stream.write_u8(b'$').await?;
-                self.stream.write_u64(data.len() as u64).await?;
+                self.stream.write_all(data.len().to_string().as_bytes()).await?;
                 self.stream.write_all(data).await?;
                 self.stream.write_all(b"\r\n").await?;
             }

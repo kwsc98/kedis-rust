@@ -14,7 +14,7 @@ async fn main(){
     //bind port
     let listener = TcpListener::bind(&format!("127.0.0.1:{}", port)).await.unwrap();
     //start server and monitor shutdown
-    server::run(listener, signal::ctrl_c()).await;
+    server::run(listener, signal::ctrl_c(),10).await;
 }
 
 fn init_log_helper(){

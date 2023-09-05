@@ -1,8 +1,9 @@
 use crate::structure::dict_ht::DictHt;
-use std::{collections::hash_map::RandomState, hash::Hash, usize, fmt};
+use std::{collections::hash_map::RandomState, hash::Hash, usize};
 
 
 #[warn(dead_code)]
+#[derive(Debug)]
 pub struct Dict<K, V, H = RandomState> 
 {
     capacity: usize,
@@ -13,8 +14,7 @@ pub struct Dict<K, V, H = RandomState>
 
 impl<K, V> Dict<K, V>
 where
-    K: Hash + PartialEq + fmt::Debug,
-    V: fmt::Debug
+    K: Hash + PartialEq,
 {
     pub fn new(size: usize) -> Self {
         let mut dict: Dict<K, V, RandomState> = Dict {

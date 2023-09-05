@@ -4,13 +4,13 @@ use tokio::{
     sync::{
         broadcast::{self},
         mpsc::{self},
-        Semaphore,
+        Semaphore, oneshot,
     },
     time,
 };
 use tracing::{debug, error, info};
 
-use crate::db::Db;
+use crate::{db::DbHandler, frame::Frame};
 use crate::{buffer::Buffer, command::Command, shutdown::Shutdown, MAX_CONNECTIONS};
 
 #[derive(Debug)]
@@ -20,17 +20,18 @@ struct Listener {
     notify_shutdown: broadcast::Sender<()>,
     shutdown_complete_tx: mpsc::Sender<()>,
     shutdown_complete_rx: mpsc::Receiver<()>,
+    db_handler: DbHandler,
 }
 
 struct Handler {
     buffer: Buffer,
-    db: Db,
+    db_sender: mpsc::Sender<(oneshot::Sender<Frame>, Command)>,
     limit_connections: Arc<Semaphore>,
     shutdown: Shutdown,
     _shutdown_complete: mpsc::Sender<()>,
 }
 
-pub async fn run(listener: TcpListener, shutdown: impl Future) {
+pub async fn run(listener: TcpListener, shutdown: impl Future, db_size: usize) {
     let (shutdown_complete_tx, shutdown_complete_rx) = mpsc::channel(1);
     let mut server = Listener {
         listener,
@@ -38,6 +39,7 @@ pub async fn run(listener: TcpListener, shutdown: impl Future) {
         notify_shutdown: broadcast::channel(1).0,
         shutdown_complete_tx,
         shutdown_complete_rx,
+        db_handler : DbHandler::new(db_size)
     };
     tokio::select! {
        res = server.run() => {
@@ -67,13 +69,12 @@ impl Listener {
             debug!("receive new connect");
             let mut handler = Handler {
                 buffer: Buffer::new(socket),
-                db: Db {},
+                db_sender : self.db_handler.get_sender(0).unwrap(),
                 shutdown: Shutdown::new(self.notify_shutdown.subscribe()),
                 limit_connections: self.limit_connections.clone(),
                 _shutdown_complete: self.shutdown_complete_tx.clone(),
             };
             tokio::spawn(async move {
-                // Process the connection. If an error is encountered, log it.
                 if let Err(err) = handler.run().await {
                     error!(cause = ?err, "handler error");
                 }
@@ -106,8 +107,8 @@ impl Handler {
                 }
             };
             if let Some(frame) = frame {
-                let cmd = Command::from_frame(&frame)?;
-                cmd.apply(&self.db, &mut self.buffer, &mut self.shutdown)
+                let cmd = Command::from_frame(frame)?;
+                cmd.apply(&self.db_sender, &mut self.buffer, &mut self.shutdown)
                     .await?;
             }
         }

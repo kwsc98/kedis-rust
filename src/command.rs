@@ -2,37 +2,38 @@ use crate::buffer::Buffer;
 use crate::cmd::get::Get;
 use crate::cmd::set::Set;
 use crate::cmd::unknown::Unknown;
-use crate::db::Db;
 use crate::frame::Frame;
 use crate::shutdown::Shutdown;
+use tokio::sync::{oneshot, mpsc};
 
-pub enum Command<'a> {
-    Get(Get<'a>),
-    Set(Set<'a>),
+pub enum Command {
+    Get(Get),
+    Set(Set),
     Unknown(Unknown),
 }
 
-impl<'a> Command<'a> {
-    pub fn from_frame(frame: &Frame) -> crate::Result<Command> {
+impl Command {
+    pub fn from_frame(frame: Frame) -> crate::Result<Command> {
         let command_name = get_command_name(&frame)?.to_lowercase();
         let command = match &command_name[..] {
             "get" => Command::Get(Get::parse_frames(frame)?),
             "set" => Command::Set(Set::parse_frames(frame)?),
-            _ => Command::Unknown(Unknown::parse_frames(frame)?)
+            _ => Command::Unknown(Unknown::parse_frames(frame)?),
         };
         return Ok(command);
     }
+
     pub(crate) async fn apply(
         self,
-        db: &Db,
+        db_sender: &mpsc::Sender<(oneshot::Sender<Frame>, Command)>,
         buffer: &mut Buffer,
         _shutdown: &mut Shutdown,
     ) -> crate::Result<()> {
-        match self {
-            Command::Get(cmd) => cmd.apply(db,buffer).await,
-            Command::Set(cmd) => cmd.apply(db,buffer).await,
-            Command::Unknown(cmd) => cmd.apply(db,buffer).await
-        }
+        let (sender, receiver) = oneshot::channel();
+        db_sender.send((sender, self)).await?;
+        let frame = receiver.await?;
+        buffer.write_frame(&frame).await?;
+        return Ok(());
     }
 }
 
@@ -50,8 +51,7 @@ pub fn get_command_name(frame: &Frame) -> crate::Result<String> {
         Frame::Bulk(bytes) => {
             let str = std::str::from_utf8(&bytes[..])?;
             Ok(String::from(str))
-        },
+        }
         _ => Err("frame is error type".into()),
     };
 }
-
