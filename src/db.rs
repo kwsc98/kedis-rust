@@ -1,17 +1,17 @@
 use crate::{command::Command, frame::Frame, structure::dict::Dict};
 use std::vec;
-use tokio::sync::{mpsc, oneshot};
+use tokio::sync::mpsc;
 
 #[derive(Debug)]
 pub struct DbHandler {
-    sender_list: Vec<mpsc::Sender<(oneshot::Sender<Frame>, Command)>>,
+    sender_list: Vec<crate::MpscSender>,
 }
 
 #[derive(Debug)]
 pub struct Db {
     dict: Dict<String, Structure>,
-    sender: mpsc::Sender<(oneshot::Sender<Frame>, Command)>,
-    receiver: mpsc::Receiver<(oneshot::Sender<Frame>, Command)>,
+    sender: crate::MpscSender,
+    receiver: crate::MpscReceiver,
 }
 
 #[derive(Debug)]
@@ -39,11 +39,11 @@ impl DbHandler {
         }
         return DbHandler { sender_list };
     }
-    pub fn get_sender(
-        &mut self,
-        idx: usize,
-    ) -> Option<mpsc::Sender<(oneshot::Sender<Frame>, Command)>> {
-        return self.sender_list.get_mut(idx).map(|item| item.clone());
+    pub fn get_sender(&self, idx: usize) -> Option<crate::MpscSender> {
+        return self.sender_list.get(idx).map(|item| item.clone());
+    }
+    pub fn get_size(&self) -> usize {
+        return self.sender_list.len();
     }
 }
 
@@ -57,17 +57,29 @@ impl Db {
         };
     }
     async fn run(&mut self) {
-        while let Some((sender, common)) = self.receiver.recv().await {
-            let frame = match common {
-                Command::Get(get) => get.apply(&self),
-                Command::Set(set) => set.apply(&self),
-                Command::Unknown(unknow) => unknow.apply(&self),
+        while let Some((sender, command)) = self.receiver.recv().await {
+            let frame = match command {
+                Command::Get(get) => get.apply(self),
+                Command::Set(set) => set.apply(self),
+                Command::Scan(scan) => scan.apply(self),
+                _ => Err("Error".into()),
             };
-            if let Some(frame) = frame {
-                let _ = sender.send(frame);
-            } else {
-                let _ = sender.send(Frame::Error("Error".to_string()));
-            }
+            let _ = match frame {
+                Ok(frame) => sender.send(frame),
+                Err(err) => sender.send(Frame::Error(err.to_string())),
+            };
         }
+    }
+    pub fn getPatternEntry(
+        &mut self,
+        pre_idx: usize,
+        match_str: String,
+        count: usize,
+    ) -> crate::Result<(usize, Vec<String>)> {
+        let mut key_list = vec![];
+        for idx in 0..count {
+
+        }
+        return Ok((pre_idx, key_list));
     }
 }

@@ -4,14 +4,14 @@ use tokio::{
     sync::{
         broadcast::{self},
         mpsc::{self},
-        Semaphore, oneshot,
+        oneshot, Semaphore,
     },
     time,
 };
 use tracing::{debug, error, info};
 
-use crate::{db::DbHandler, frame::Frame};
 use crate::{buffer::Buffer, command::Command, shutdown::Shutdown, MAX_CONNECTIONS};
+use crate::{db::DbHandler, frame::Frame};
 
 #[derive(Debug)]
 struct Listener {
@@ -20,15 +20,16 @@ struct Listener {
     notify_shutdown: broadcast::Sender<()>,
     shutdown_complete_tx: mpsc::Sender<()>,
     shutdown_complete_rx: mpsc::Receiver<()>,
-    db_handler: DbHandler,
+    db_handler: Arc<DbHandler>,
 }
 
-struct Handler {
+pub struct Handler {
     buffer: Buffer,
-    db_sender: mpsc::Sender<(oneshot::Sender<Frame>, Command)>,
     limit_connections: Arc<Semaphore>,
     shutdown: Shutdown,
     _shutdown_complete: mpsc::Sender<()>,
+    db_sender: crate::MpscSender,
+    db_handler: Arc<DbHandler>,
 }
 
 pub async fn run(listener: TcpListener, shutdown: impl Future, db_size: usize) {
@@ -39,7 +40,7 @@ pub async fn run(listener: TcpListener, shutdown: impl Future, db_size: usize) {
         notify_shutdown: broadcast::channel(1).0,
         shutdown_complete_tx,
         shutdown_complete_rx,
-        db_handler : DbHandler::new(db_size)
+        db_handler: Arc::new(DbHandler::new(db_size)),
     };
     tokio::select! {
        res = server.run() => {
@@ -69,10 +70,11 @@ impl Listener {
             debug!("receive new connect");
             let mut handler = Handler {
                 buffer: Buffer::new(socket),
-                db_sender : self.db_handler.get_sender(0).unwrap(),
                 shutdown: Shutdown::new(self.notify_shutdown.subscribe()),
                 limit_connections: self.limit_connections.clone(),
                 _shutdown_complete: self.shutdown_complete_tx.clone(),
+                db_sender: self.db_handler.as_ref().get_sender(0).unwrap(),
+                db_handler: self.db_handler.clone(),
             };
             tokio::spawn(async move {
                 if let Err(err) = handler.run().await {
@@ -108,11 +110,42 @@ impl Handler {
             };
             if let Some(frame) = frame {
                 let cmd = Command::from_frame(frame)?;
-                cmd.apply(&self.db_sender, &mut self.buffer, &mut self.shutdown)
-                    .await?;
+                let fist_do = match &cmd {
+                    Command::Unknown(unknown) => Some(unknown.apply()),
+                    Command::Info(info) => Some(info.apply()),
+                    Command::Ping(ping) => Some(ping.apply()),
+                    Command::Select(select) => Some(select.apply(self)),
+                    Command::Config(config) => Some(config.apply(self)),
+                    _ => None,
+                };
+                let frame;
+                if let Some(result) = fist_do {
+                    frame = match result {
+                        Ok(frame) => frame,
+                        Err(err) => Frame::Error(err.to_string()),
+                    };
+                } else {
+                    let (sender, receiver) = oneshot::channel();
+                    self.db_sender.send((sender, cmd)).await?;
+                    frame = receiver.await?;
+                }
+                self.buffer.write_frame(&frame).await?;
             }
         }
         return Ok(());
+    }
+
+    pub fn change_db_sender(&mut self, idx: usize) -> crate::Result<()> {
+        let sender_list = self
+            .db_handler
+            .get_sender(idx)
+            .ok_or("ERR invalid DB index")?;
+        self.db_sender = sender_list;
+        return Ok(());
+    }
+
+    pub fn get_db_size(&mut self) -> usize {
+        return self.db_handler.get_size();
     }
 }
 impl Drop for Handler {

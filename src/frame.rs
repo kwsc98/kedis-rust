@@ -2,7 +2,6 @@ use crate::frame::Error::Other;
 use bytes::{Buf, Bytes};
 use std::io::Cursor;
 use std::num::TryFromIntError;
-use std::str::FromStr;
 use std::string::FromUtf8Error;
 
 #[derive(Debug)]
@@ -83,6 +82,26 @@ impl Frame {
                 temp
             }
             Frame::Null => String::from("NULL"),
+        };
+    }
+
+    pub fn get_frame_by_index(&self, index: usize) -> Option<&Frame> {
+        return if let Frame::Array(array) = self {
+            array.get(index)
+        } else {
+            if index == 0 {
+                Some(self)
+            } else {
+                None
+            }
+        };
+    }
+
+    pub fn get_size(&self) -> usize {
+        return if let Frame::Array(array) = self {
+            array.len()
+        } else {
+            1
         };
     }
 }

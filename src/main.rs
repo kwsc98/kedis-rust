@@ -1,4 +1,4 @@
-use std::{cell::RefCell, rc::Rc};
+use std::{borrow::BorrowMut, cell::RefCell, collections::LinkedList, rc::Rc};
 pub struct Solution {}
 
 #[derive(Debug, PartialEq, Eq)]
@@ -18,39 +18,54 @@ impl TreeNode {
         }
     }
 }
-impl Solution {
-    pub fn longest_consecutive(mut root: Option<Rc<RefCell<TreeNode>>>) -> i32 {
-        let mut res = 1;
-        Solution::do_run(root.as_mut(), &mut res);
-        return res;
-    }
 
-    fn do_run(node: Option<&mut Rc<RefCell<TreeNode>>>, pre: &mut i32) -> (i32, i32, i32) {
-        let mut res = (0, 0, 0);
-        if let Some(node) = node {
-            res.0 = node.borrow().val;
-            if let Some(left_node) = node.borrow_mut().left.as_mut() {
-                let temp = Solution::do_run(Some(left_node), pre);
-                if res.0 - 1 == temp.0 {
-                    res.1 = temp.1;
+impl Solution {
+    pub fn boundary_of_binary_tree(root: Option<Rc<RefCell<TreeNode>>>) -> Vec<i32> {
+        let mut res1_linked_list = LinkedList::new();
+        let mut res2 = vec![];
+
+        if let None = root {
+            return res2;
+        }
+        let mut count = 1;
+        let mut linked_list = LinkedList::new();
+        linked_list.push_back(root.unwrap());
+        while !linked_list.is_empty() {
+            let mut node = linked_list.pop_front().unwrap();
+            let val = node.borrow().val;
+            let node = node.borrow_mut().as_ptr();
+            count -= 1;
+            let mut end_pre = false;
+            unsafe {
+                if let Some(left) = (*node).left.take() {
+                    end_pre = true;
+                    linked_list.push_back(left);
                 }
-                if res.0 + 1 == temp.0 {
-                    res.2 = temp.2;
+                if let Some(right) = (*node).right.take() {
+                    end_pre = true;
+                    linked_list.push_back(right);
                 }
             }
-            if let Some(right_node) = node.borrow_mut().right.as_mut() {
-                let temp = Solution::do_run(Some(right_node), pre);
-                if res.0 - 1 == temp.0 {
-                    res.1 = res.1.max(temp.1);
+            if count == 0 {
+                if end_pre {
+                    res1_linked_list.push_back(val);
+                } else {
+                    res2.push(val);
+                    if !linked_list.is_empty(){
+                        res1_linked_list.push_back(linked_list.front().unwrap().borrow().val);
+                    }
                 }
-                if res.0 + 1 == temp.0 {
-                    res.2 = res.2.max(temp.2);
-                }
+                count = linked_list.len();
             }
         }
-        *pre = (res.1 + res.2 + 1).max(*pre);
-        res.0 += 1;
-        res.1 += 1;
+        res1_linked_list.push_front(res2[0]);
+        for idx in (0..res2.len() - 1).rev() {
+            res1_linked_list.push_back(res2[idx]);
+        }
+        let mut res = vec![];
+        while !res1_linked_list.is_empty() {
+            res.push(res1_linked_list.pop_front().unwrap());
+        }
         return res;
     }
 }
