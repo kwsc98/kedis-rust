@@ -28,7 +28,16 @@ impl Scan {
     }
 
     pub fn apply(&self, db: &mut Db) -> crate::Result<Frame> {
-        
-        return Ok(Frame::Simple("PONG".to_string()));
+        let dict = db.get_dict();
+        let res = dict.get_pattern_entry(
+            self.start_idx,self.match_str.clone(),self.count
+        );
+        let mut idx = 0;
+        let mut frame_list = vec![];
+        if let Ok(item) = res  {
+            idx = item.0;
+            item.1.iter().for_each(|e| frame_list.push(Frame::Bulk(e.clone().into())));
+        }
+        return Ok(Frame::Array(vec![Frame::Bulk(idx.to_string().into()),Frame::Array(frame_list)]));
     }
 }

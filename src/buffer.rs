@@ -94,7 +94,7 @@ impl Buffer {
             Frame::Null => {
                 self.stream.write_all(b"$-1\r\n").await?;
             }
-            Frame::Array(_) => unreachable!(),
+            Frame::Array(_) => {},
         }
         Ok(())
     }

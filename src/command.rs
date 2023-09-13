@@ -28,6 +28,7 @@ impl Command {
             "info" => Command::Info(Info::parse_frames(frame)?),
             "ping" => Command::Ping(Ping::parse_frames(frame)?),
             "select" => Command::Select(Select::parse_frames(frame)?),
+            "scan" => Command::Scan(Scan::parse_frames(frame)?),
             "config" => Command::Config(Config::parse_frames(frame)?),
             _ => Command::Unknown(Unknown::parse_frames(frame)?),
         };

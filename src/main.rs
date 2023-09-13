@@ -1,4 +1,4 @@
-use std::{borrow::BorrowMut, cell::RefCell, collections::LinkedList, rc::Rc};
+use std::{borrow::BorrowMut, cell::RefCell, rc::Rc};
 pub struct Solution {}
 
 #[derive(Debug, PartialEq, Eq)]
@@ -20,53 +20,28 @@ impl TreeNode {
 }
 
 impl Solution {
-    pub fn boundary_of_binary_tree(root: Option<Rc<RefCell<TreeNode>>>) -> Vec<i32> {
-        let mut res1_linked_list = LinkedList::new();
-        let mut res2 = vec![];
-
-        if let None = root {
-            return res2;
-        }
-        let mut count = 1;
-        let mut linked_list = LinkedList::new();
-        linked_list.push_back(root.unwrap());
-        while !linked_list.is_empty() {
-            let mut node = linked_list.pop_front().unwrap();
-            let val = node.borrow().val;
-            let node = node.borrow_mut().as_ptr();
-            count -= 1;
-            let mut end_pre = false;
-            unsafe {
-                if let Some(left) = (*node).left.take() {
-                    end_pre = true;
-                    linked_list.push_back(left);
-                }
-                if let Some(right) = (*node).right.take() {
-                    end_pre = true;
-                    linked_list.push_back(right);
-                }
-            }
-            if count == 0 {
-                if end_pre {
-                    res1_linked_list.push_back(val);
-                } else {
-                    res2.push(val);
-                    if !linked_list.is_empty(){
-                        res1_linked_list.push_back(linked_list.front().unwrap().borrow().val);
-                    }
-                }
-                count = linked_list.len();
-            }
-        }
-        res1_linked_list.push_front(res2[0]);
-        for idx in (0..res2.len() - 1).rev() {
-            res1_linked_list.push_back(res2[idx]);
-        }
-        let mut res = vec![];
-        while !res1_linked_list.is_empty() {
-            res.push(res1_linked_list.pop_front().unwrap());
-        }
+    pub fn find_leaves(root: Option<Rc<RefCell<TreeNode>>>) -> Vec<Vec<i32>> {
+        let mut res = vec![vec![]];
+        Self::do_run(root, &mut res);
         return res;
+    }
+    fn do_run(node: Option<Rc<RefCell<TreeNode>>>, pre: &mut Vec<Vec<i32>>) -> usize {
+        if None.eq(&node) {
+            return 0;
+        }
+        let mut idx = 0;
+        let node = node.unwrap().borrow_mut().as_ptr();
+        unsafe {
+            let left = Solution::do_run((*node).left.take(), pre);
+            idx = left;
+            let right = Solution::do_run((*node).right.take(), pre);
+            idx = idx.max(right)+1;
+            if pre.len() - 1 < idx as usize {
+                pre.push(vec![]);
+            }
+            pre[idx-1].push((*node).val);
+        }
+        return idx;
     }
 }
 

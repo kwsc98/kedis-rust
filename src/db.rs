@@ -15,7 +15,7 @@ pub struct Db {
 }
 
 #[derive(Debug)]
-enum Structure {
+pub enum Structure {
     String(String),
     Hash,
     List,
@@ -70,16 +70,7 @@ impl Db {
             };
         }
     }
-    pub fn getPatternEntry(
-        &mut self,
-        pre_idx: usize,
-        match_str: String,
-        count: usize,
-    ) -> crate::Result<(usize, Vec<String>)> {
-        let mut key_list = vec![];
-        for idx in 0..count {
-
-        }
-        return Ok((pre_idx, key_list));
+    pub fn get_dict(&mut self)-> &mut Dict<String, Structure>{
+        return &mut self.dict;
     }
 }

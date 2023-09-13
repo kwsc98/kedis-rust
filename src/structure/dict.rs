@@ -1,11 +1,12 @@
 use crate::structure::dict_ht::DictHt;
+use regex::Regex;
 use std::{collections::hash_map::RandomState, hash::Hash, usize};
 
+use super::dict_ht::DictEntry;
 
 #[warn(dead_code)]
 #[derive(Debug)]
-pub struct Dict<K, V, H = RandomState> 
-{
+pub struct Dict<K, V, H = RandomState> {
     capacity: usize,
     dict_hts: [Option<DictHt<K, V, H>>; 2],
     rehash_idx: i64,
@@ -14,7 +15,7 @@ pub struct Dict<K, V, H = RandomState>
 
 impl<K, V> Dict<K, V>
 where
-    K: Hash + PartialEq,
+    K: Hash + PartialEq + ToString,
 {
     pub fn new(size: usize) -> Self {
         let mut dict: Dict<K, V, RandomState> = Dict {
@@ -23,9 +24,49 @@ where
             rehash_idx: -1,
             dict_hts: [None, None],
         };
-        let dict_ht: DictHt<K, V, RandomState> = DictHt::new(size,dict.hash_builder.clone());
+        let dict_ht: DictHt<K, V, RandomState> = DictHt::new(size, dict.hash_builder.clone());
         let _ = dict.dict_hts[0].insert(dict_ht);
         return dict;
+    }
+
+    pub fn get_pattern_entry(
+        &mut self,
+        mut pre_idx: usize,
+        match_str: String,
+        count: usize,
+    ) -> crate::Result<(usize, Vec<String>)> {
+        let regex = Regex::new(&match_str[..])?;
+        let dict_ht_0 = self.dict_hts[0].as_ref().unwrap();
+        let entry_list = &dict_ht_0.dict_entry_array;
+        let mut key_list = vec![];
+        let push_entry = |mut option_entry: Option<&Box<DictEntry<K, V>>>,
+                          key_list: &mut Vec<String>| {
+            while let Some(entry) = option_entry {
+                let key = entry.key.to_string();
+                if regex.is_match(key.as_str()) {
+                    key_list.push(key);
+                }
+                option_entry = entry.next.as_ref();
+            }
+        };
+        while pre_idx < entry_list.len() && key_list.len() < count {
+            let option_entry = entry_list[pre_idx].as_ref();
+            push_entry(option_entry, &mut key_list);
+            if self.is_rehashing() {
+                let dict_ht_1 = self.dict_hts[1].as_ref().unwrap();
+                let entry_list_1 = &dict_ht_1.dict_entry_array;
+                push_entry(entry_list_1[pre_idx].as_ref(), &mut key_list);
+                push_entry(
+                    entry_list_1[Self::get_next_idx(pre_idx, entry_list_1.len())].as_ref(),
+                    &mut key_list,
+                );
+            }
+            pre_idx += 1;
+        }
+        if pre_idx >= entry_list.len() {
+            pre_idx = 0;
+        }
+        return Ok((pre_idx, key_list));
     }
 
     pub fn insert(&mut self, key: K, value: V) -> Option<V> {
@@ -92,7 +133,7 @@ where
     fn get_value(&self, key: &K, idx: usize) -> Option<&V> {
         let entry = self.dict_hts[idx].as_ref()?.get_ref_entry(key);
         if let Some(entry) = entry {
-            return entry.value.as_ref()
+            return entry.value.as_ref();
         }
         return None;
     }
@@ -146,15 +187,17 @@ where
         return self.rehash_idx != -1;
     }
 
-    fn _get_next_idx(mut idx : u64,len : u64) -> u64 {
+    fn get_next_idx(idx: usize, len: usize) -> usize {
+        let mut idx = idx as u64;
+        let len = len as u64;
         idx |= !len + 1;
-        idx = Self::_rev(idx);
-        idx += 1 ;
-        idx = Self::_rev(idx);
-        return idx;
+        idx = Self::rev(idx);
+        idx += 1;
+        idx = Self::rev(idx);
+        return idx as usize;
     }
-    
-    fn _rev(mut index : u64) -> u64 {
+
+    fn rev(mut index: u64) -> u64 {
         let mut rev = 0;
         let mut i = 0;
         while i < 64 && index != 0 {
