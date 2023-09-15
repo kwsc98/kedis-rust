@@ -23,5 +23,5 @@ pub type Error = Box<dyn std::error::Error + Send + Sync>;
 
 pub type Result<T> = std::result::Result<T, Error>;
 
-type MpscSender = mpsc::Sender<(oneshot::Sender<Frame>, Command)>;
-type MpscReceiver = mpsc::Receiver<(oneshot::Sender<Frame>, Command)>;
+type MpscSender = mpsc::Sender<(oneshot::Sender<Result<Frame>>, Command)>;
+type MpscReceiver = mpsc::Receiver<(oneshot::Sender<Result<Frame>>, Command)>;

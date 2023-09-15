@@ -1,5 +1,5 @@
-use crate::{command::Command, frame::Frame, structure::dict::Dict};
-use std::vec;
+use crate::{command::Command, structure::dict::Dict};
+use std::{hash::Hash, vec};
 use tokio::sync::mpsc;
 
 #[derive(Debug)]
@@ -8,8 +8,40 @@ pub struct DbHandler {
 }
 
 #[derive(Debug)]
+pub struct KedisKey {
+    key: String,
+    ttl: i64,
+}
+
+
+impl KedisKey {
+    pub fn new(key: String) -> Self {
+        return KedisKey { key, ttl: -1 };
+    }
+    pub fn set_ttl(&mut self, ttl: i64) {
+        self.ttl = ttl;
+    }
+}
+
+impl PartialEq for KedisKey {
+    fn eq(&self, other: &Self) -> bool {
+        self.key == other.key
+    }
+}
+impl Hash for KedisKey {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.key.hash(state);
+    }
+}
+impl ToString for KedisKey {
+    fn to_string(&self) -> String {
+        return self.key.clone();
+    }
+}
+
+#[derive(Debug)]
 pub struct Db {
-    dict: Dict<String, Structure>,
+    dict: Dict<KedisKey, Structure>,
     sender: crate::MpscSender,
     receiver: crate::MpscReceiver,
 }
@@ -62,15 +94,42 @@ impl Db {
                 Command::Get(get) => get.apply(self),
                 Command::Set(set) => set.apply(self),
                 Command::Scan(scan) => scan.apply(self),
+                Command::Type(scan) => scan.apply(self),
+                Command::Ttl(ttl) => ttl.apply(self),
                 _ => Err("Error".into()),
             };
-            let _ = match frame {
-                Ok(frame) => sender.send(frame),
-                Err(err) => sender.send(Frame::Error(err.to_string())),
-            };
+            let _ = sender.send(frame);
         }
     }
-    pub fn get_dict(&mut self)-> &mut Dict<String, Structure>{
-        return &mut self.dict;
+    pub fn get_pattern_entry(
+        &mut self,
+        pre_idx: usize,
+        match_str: String,
+        count: usize,
+    ) -> crate::Result<(usize, Vec<String>)> {
+        return self.dict.get_pattern_entry(pre_idx, match_str, count);
+    }
+    pub fn insert(&mut self, key: KedisKey, value: Structure) -> Option<Structure> {
+        return self.dict.insert(key, value);
+    }
+
+    pub fn get(&self, key: &KedisKey) -> Option<&Structure> {
+        return self.dict.get(key);
+    }
+
+    pub fn get_mut(&mut self, key: &KedisKey) -> Option<&mut Structure> {
+        return self.dict.get_mut(key);
+    }
+}
+
+impl Structure {
+    pub fn get_type(&self) -> &str {
+        return match self {
+            Structure::String(_) => "string",
+            Structure::Hash => "hash",
+            Structure::List => "list",
+            Structure::Set => "set",
+            Structure::SortSet => "zset",
+        };
     }
 }

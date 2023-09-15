@@ -24,6 +24,7 @@ struct Listener {
 }
 
 pub struct Handler {
+    handler_name: Option<String>,
     buffer: Buffer,
     limit_connections: Arc<Semaphore>,
     shutdown: Shutdown,
@@ -69,6 +70,7 @@ impl Listener {
             let socket = self.accept().await?;
             debug!("receive new connect");
             let mut handler = Handler {
+                handler_name: None,
                 buffer: Buffer::new(socket),
                 shutdown: Shutdown::new(self.notify_shutdown.subscribe()),
                 limit_connections: self.limit_connections.clone(),
@@ -101,7 +103,7 @@ impl Listener {
 }
 impl Handler {
     async fn run(&mut self) -> crate::Result<()> {
-        while !self.shutdown.is_shutdown() {
+        loop {
             let frame = tokio::select! {
                 res = self.buffer.read_frame() => res?,
                 _ = self.shutdown.recv() => {
@@ -109,26 +111,31 @@ impl Handler {
                 }
             };
             if let Some(frame) = frame {
-                let cmd = Command::from_frame(frame)?;
-                let fist_do = match &cmd {
-                    Command::Unknown(unknown) => Some(unknown.apply()),
-                    Command::Info(info) => Some(info.apply()),
-                    Command::Ping(ping) => Some(ping.apply()),
-                    Command::Select(select) => Some(select.apply(self)),
-                    Command::Config(config) => Some(config.apply(self)),
-                    _ => None,
+                let result_cmd = Command::from_frame(frame);
+                let result_frame = match result_cmd {
+                    Ok(cmd) => match cmd {
+                        Command::Unknown(unknown) => unknown.apply(),
+                        Command::Info(info) => info.apply(),
+                        Command::Ping(ping) => ping.apply(),
+                        Command::Select(select) => select.apply(self),
+                        Command::Config(config) => config.apply(self),
+                        Command::Client(client) => client.apply(self),
+                        Command::Quit(_quit) => {
+                            self.shutdown.shutdown();
+                            break;
+                        }
+                        _ => {
+                            let (sender, receiver) = oneshot::channel();
+                            self.db_sender.send((sender, cmd)).await?;
+                            receiver.await?
+                        }
+                    },
+                    Err(err_info) => Ok(Frame::Error(err_info.to_string())),
                 };
-                let frame;
-                if let Some(result) = fist_do {
-                    frame = match result {
-                        Ok(frame) => frame,
-                        Err(err) => Frame::Error(err.to_string()),
-                    };
-                } else {
-                    let (sender, receiver) = oneshot::channel();
-                    self.db_sender.send((sender, cmd)).await?;
-                    frame = receiver.await?;
-                }
+                let frame = match result_frame {
+                    Ok(frame) => frame,
+                    Err(err_info) => Frame::Error(err_info.to_string()),
+                };
                 self.buffer.write_frame(&frame).await?;
             }
         }
@@ -147,9 +154,14 @@ impl Handler {
     pub fn get_db_size(&mut self) -> usize {
         return self.db_handler.get_size();
     }
+
+    pub fn set_handler_name(&mut self, name: String) {
+        let _ = self.handler_name.insert(name);
+    }
 }
 impl Drop for Handler {
     fn drop(&mut self) {
+        debug!("handler quit");
         self.limit_connections.add_permits(1);
     }
 }

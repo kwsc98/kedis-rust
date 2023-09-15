@@ -1,9 +1,13 @@
+use crate::cmd::client::Client;
 use crate::cmd::config::Config;
 use crate::cmd::get::Get;
 use crate::cmd::ping::Ping;
+use crate::cmd::quit::Quit;
+use crate::cmd::r#type::Type;
 use crate::cmd::scan::Scan;
 use crate::cmd::select::Select;
 use crate::cmd::set::Set;
+use crate::cmd::ttl::Ttl;
 use crate::cmd::unknown::Unknown;
 use crate::frame::Frame;
 use crate:: cmd::info::Info;
@@ -17,6 +21,10 @@ pub enum Command {
     Select(Select),
     Config(Config),
     Scan(Scan),
+    Quit(Quit),
+    Client(Client),
+    Type(Type),
+    Ttl(Ttl),
 }
 
 impl Command {
@@ -30,6 +38,10 @@ impl Command {
             "select" => Command::Select(Select::parse_frames(frame)?),
             "scan" => Command::Scan(Scan::parse_frames(frame)?),
             "config" => Command::Config(Config::parse_frames(frame)?),
+            "quit" => Command::Quit(Quit::parse_frames(frame)?),
+            "client" => Command::Client(Client::parse_frames(frame)?),
+            "type" => Command::Type(Type::parse_frames(frame)?),
+            "ttl" => Command::Ttl(Ttl::parse_frames(frame)?),
             _ => Command::Unknown(Unknown::parse_frames(frame)?),
         };
         return Ok(command);

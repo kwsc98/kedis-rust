@@ -6,3 +6,7 @@ pub(crate) mod ping;
 pub(crate) mod select;
 pub(crate) mod config;
 pub(crate) mod scan;
+pub(crate) mod quit;
+pub(crate) mod client;
+pub(crate) mod r#type;
+pub(crate) mod ttl;

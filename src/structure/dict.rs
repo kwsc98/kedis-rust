@@ -35,7 +35,7 @@ where
         match_str: String,
         count: usize,
     ) -> crate::Result<(usize, Vec<String>)> {
-        let regex = Regex::new(&match_str[..])?;
+        let regex = Regex::new(&match_str.replace("*","/*")[..])?;
         let dict_ht_0 = self.dict_hts[0].as_ref().unwrap();
         let entry_list = &dict_ht_0.dict_entry_array;
         let mut key_list = vec![];

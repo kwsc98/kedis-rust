@@ -49,53 +49,47 @@ impl Buffer {
 
     pub async fn write_frame(&mut self, frame: &Frame) -> io::Result<()> {
         debug!("write frame [{:?}]", frame);
-        match frame {
-            Frame::Array(data) => {
-                self.stream.write_u8(b'*').await?;
-                self.stream
-                    .write_all(data.len().to_string().as_bytes())
-                    .await?;
-                self.stream.write_all(b"\r\n").await?;
-                for item in data {
-                    self.write_value(item).await?;
-                }
-            }
-            _ => self.write_value(frame).await?,
-        }
+        let mut bytes = vec![];
+        Self::write_value(frame, &mut bytes);
+        self.stream.write_all(bytes.as_mut_slice()).await?;
         self.stream.flush().await
     }
 
-    pub async fn write_value(&mut self, frame: &Frame) -> io::Result<()> {
+    fn write_value(frame: &Frame, bytes: &mut Vec<u8>) {
         match frame {
             Frame::Simple(data) => {
-                self.stream.write_u8(b'+').await?;
-                self.stream.write_all(data.as_bytes()).await?;
-                self.stream.write_all(b"\r\n").await?;
+                bytes.extend_from_slice(b"+");
+                bytes.extend_from_slice(data.as_bytes());
+                bytes.extend_from_slice(b"\r\n");
             }
             Frame::Error(data) => {
-                self.stream.write_u8(b'-').await?;
-                self.stream.write_all(data.as_bytes()).await?;
-                self.stream.write_all(b"\r\n").await?;
+                bytes.extend_from_slice(b"-");
+                bytes.extend_from_slice(data.as_bytes());
+                bytes.extend_from_slice(b"\r\n");
             }
             Frame::Integer(data) => {
-                self.stream.write_u8(b':').await?;
-                self.stream.write_all(data.to_string().as_bytes()).await?;
-                self.stream.write_all(b"\r\n").await?;
+                bytes.extend_from_slice(b":");
+                bytes.extend_from_slice(data.to_string().as_bytes());
+                bytes.extend_from_slice(b"\r\n");
             }
             Frame::Bulk(data) => {
-                self.stream.write_u8(b'$').await?;
-                self.stream
-                    .write_all(data.len().to_string().as_bytes())
-                    .await?;
-                self.stream.write_all(b"\r\n").await?;
-                self.stream.write_all(data).await?;
-                self.stream.write_all(b"\r\n").await?;
+                bytes.extend_from_slice(b"$");
+                bytes.extend_from_slice(data.len().to_string().as_bytes());
+                bytes.extend_from_slice(b"\r\n");
+                bytes.extend_from_slice(data);
+                bytes.extend_from_slice(b"\r\n");
             }
             Frame::Null => {
-                self.stream.write_all(b"$-1\r\n").await?;
+                bytes.extend_from_slice(b"$-1\r\n");
             }
-            Frame::Array(_) => {},
+            Frame::Array(data) => {
+                bytes.extend_from_slice(b"*");
+                bytes.extend_from_slice(data.len().to_string().as_bytes());
+                bytes.extend_from_slice(b"\r\n");
+                for item in data {
+                    Self::write_value(item, bytes);
+                }
+            }
         }
-        Ok(())
     }
 }

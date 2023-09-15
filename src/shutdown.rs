@@ -8,7 +8,6 @@ pub(crate) struct Shutdown {
 }
 
 impl Shutdown {
-
     pub(crate) fn new(notify: broadcast::Receiver<()>) -> Shutdown {
         Shutdown {
             shutdown: false,
@@ -20,8 +19,12 @@ impl Shutdown {
         self.shutdown
     }
 
+    pub(crate) fn shutdown(&mut self) {
+        self.shutdown = true;
+    }
+
     pub(crate) async fn recv(&mut self) {
-        if self.shutdown {
+        if self.is_shutdown() {
             return;
         }
         let _ = self.notify.recv().await;
