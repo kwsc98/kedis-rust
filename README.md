@@ -1,6 +1,6 @@
 # kedis-rust
 
-`kedis-rust` 是一个学习rust高级进阶的项目，此项目使用tokio作为线程io模型来让大家学习体验rust异步编程的魅力。
+`kedis-rust` 是一个学习rust高级进阶的项目，此项目使用tokio作为线程io模型，实现了一个多线程io处理，单线程命令处理，具有渐进式rehash的高性能redis。
 
 本项目参考 [Kedis](https://github.com/kwsc98/kedis) 该项目为 `kedis-java` 的java实现版本，使用netty作为线程模型，和我们介绍tokio有异曲同工的妙处，有兴趣的同学可以用来学习与参考。
 
