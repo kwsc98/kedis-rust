@@ -98,7 +98,7 @@ fn parse_frame(&mut self) -> crate::Result<Option<Frame>> {
 [Another Redis Desktop Manager](https://github.com/qishibo/AnotherRedisDesktopManager/releases)，这个开源客户端带有命令行模式，笔者也是用这个客户端进行调试的。
 
 ## 多线程IO处理
-我们知道Redis在最近几个版本支持了多线程操作，实际上之前也支持，比如说持久化/异步删除等功能，但redis6开始支持了多线程处理io事件和协议的序列化和反序列化，那tokio实际上也支持多线程并发处理，废话不多说我们之间看下面代码。
+我们知道Redis在最近几个版本支持了多线程操作，实际上之前也支持，比如说持久化/异步删除等功能，但redis6开始支持了多线程处理io事件和协议的序列化和反序列化，那我们当然要与时俱进，tokio实际上也支持多线程并发处理，废话不多说我们之间看下面代码。
  ```rust
 impl Listener { //端口进行监听
     async fn run(&mut self) -> crate::Result<()> {
@@ -106,7 +106,7 @@ impl Listener { //端口进行监听
             self.limit_connections.acquire().await.unwrap().forget();
             let socket = self.accept().await?; //这里就是等待新的socket连接建立
             debug!("receive new connect");
-            let mut handler = Handler { //一旦建立连接我们就生成一个handler处理器来专门对这个socket连接进行处理
+            let mut handler = Handler { //连接建立成功我们生成一个handler处理器来专门对这个socket连接进行处理
                 handler_name: None,
                 buffer: Buffer::new(socket),
                 shutdown: Shutdown::new(self.notify_shutdown.subscribe()),
@@ -125,7 +125,7 @@ impl Listener { //端口进行监听
 }
  ```
 从上门的代码我们可以看出来，我们的main线程一直在轮询尝试获取新的socket连接，获取到之后我们就将连接进行包装然后移交给tokio线程池进行处理，光看这段代码实际上是不是就像我们之前说的io多路复用模型，我们一个main线程不停的轮询去处理新建立的连接，
-实际上tokio线程池底层也是如此实现的，我们所谓的异步线程也是一直以轮询的方式去处理待处理的Future，这样做的好处就是减少了线程睡眠，唤醒的资源消耗，同时也简化了流程，当然tokio再实现上是更加复杂的，核心的问题就是如何比较两个线程获取到同一个任务Future，
+实际上tokio线程池底层也是如此实现的，我们所谓的异步线程也是一直以轮询的方式去处理待处理的Future，这样做的好处就是减少了线程睡眠，唤醒的资源消耗，同时也简化了流程，当然tokio在此实现上是更加复杂的，其中一个核心的问题就是如何处理两个线程获取到同一个任务Future的情况，
 目前tokio是采用调度策略（例如工作窃取算法）来选择任务进行执行，当然现在rust和tokio还在不断的优化更新，相信之后会有更优的处理方法。
 
 ## 单线程命令处理
