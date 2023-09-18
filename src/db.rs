@@ -1,4 +1,9 @@
-use crate::{command::Command, structure::dict::Dict};
+use crate::{
+    command::Command,
+    common,
+    structure::{dict::Dict, dict_ht::DictEntry},
+};
+use common::date_util as DateUtil;
 use std::{hash::Hash, vec};
 use tokio::sync::mpsc;
 
@@ -10,16 +15,15 @@ pub struct DbHandler {
 #[derive(Debug)]
 pub struct KedisKey {
     key: String,
-    ttl: i64,
+    ttl: Option<u128>,
 }
-
 
 impl KedisKey {
     pub fn new(key: String) -> Self {
-        return KedisKey { key, ttl: -1 };
+        return KedisKey { key, ttl: None };
     }
-    pub fn set_ttl(&mut self, ttl: i64) {
-        self.ttl = ttl;
+    pub fn set_ttl(&mut self, ttl: u128) {
+        self.ttl = Some(ttl);
     }
 }
 
@@ -107,18 +111,55 @@ impl Db {
         match_str: String,
         count: usize,
     ) -> crate::Result<(usize, Vec<String>)> {
-        return self.dict.get_pattern_entry(pre_idx, match_str, count);
+        let item = self.dict.get_pattern_entry(pre_idx, match_str, count)?;
+        let mut list = vec![];
+        for key in item.1 {
+            if !self.remove_expired_key(&KedisKey::new(key.clone())) {
+                list.push(key);
+            }
+        }
+        return Ok((item.0, list));
     }
     pub fn insert(&mut self, key: KedisKey, value: Structure) -> Option<Structure> {
+        self.remove_expired_key(&key);
         return self.dict.insert(key, value);
     }
 
-    pub fn get(&self, key: &KedisKey) -> Option<&Structure> {
-        return self.dict.get(key);
+    pub fn get(&mut self, key: &KedisKey) -> Option<&Structure> {
+        self.remove_expired_key(key);
+        let entry = self.dict.get(key)?;
+        return entry.value.as_ref();
     }
 
     pub fn get_mut(&mut self, key: &KedisKey) -> Option<&mut Structure> {
-        return self.dict.get_mut(key);
+        self.remove_expired_key(key);
+        let entry = self.dict.get_mut(key)?;
+        return entry.value.as_mut();
+    }
+
+    pub fn get_entry(&mut self, key: &KedisKey) -> Option<&DictEntry<KedisKey, Structure>> {
+        self.remove_expired_key(key);
+        return self.dict.get(key);
+    }
+
+    fn remove_expired_key(&mut self, key: &KedisKey) -> bool {
+        let entry = self.dict.get(key);
+        if let Some(entry) = entry {
+            if Self::check_expired(entry.key.ttl) {
+                self.dict.remove(key);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    fn check_expired(ttl: Option<u128>) -> bool {
+        if let Some(ttl) = ttl {
+            if ttl >= DateUtil::get_now_date_time_as_millis() {
+                return true;
+            }
+        }
+        return false;
     }
 }
 
@@ -131,5 +172,14 @@ impl Structure {
             Structure::Set => "set",
             Structure::SortSet => "zset",
         };
+    }
+}
+
+impl KedisKey {
+    pub fn get_ttl(&self) -> String {
+        return match self.ttl   {
+            Some(ttl) => ttl.to_string(),
+            None => "-1".to_string(),
+        }
     }
 }

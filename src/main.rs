@@ -1,5 +1,4 @@
 use std::{borrow::BorrowMut, cell::RefCell, rc::Rc};
-use regex::{Error, Regex};
 
 pub struct Solution {}
 
@@ -31,19 +30,18 @@ impl Solution {
         if None.eq(&node) {
             return 0;
         }
-        let mut idx = 0;
         let node = node.unwrap().borrow_mut().as_ptr();
         unsafe {
             let left = Solution::do_run((*node).left.take(), pre);
-            idx = left;
+            let mut idx = left;
             let right = Solution::do_run((*node).right.take(), pre);
             idx = idx.max(right)+1;
             if pre.len() - 1 < idx as usize {
                 pre.push(vec![]);
             }
             pre[idx-1].push((*node).val);
+            return idx;
         }
-        return idx;
     }
 }
 

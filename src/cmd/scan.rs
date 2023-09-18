@@ -31,11 +31,10 @@ impl Scan {
         let res = db.get_pattern_entry(
             self.start_idx,self.match_str.clone(),self.count
         );
-        let mut idx = 0;
         let mut frame_list = vec![];
         return match res {
             Ok(item) => {
-                idx = item.0;
+                let idx = item.0;
                 item.1.iter().for_each(|e| frame_list.push(Frame::Bulk(e.clone().into())));
                 Ok(Frame::Array(vec![Frame::Bulk(idx.to_string().into()), Frame::Array(frame_list)]))
             }

@@ -82,7 +82,7 @@ where
         return None;
     }
 
-    pub fn get(&self, key: &K) -> Option<&V> {
+    pub fn get(&self, key: &K) -> Option<&DictEntry<K, V>> {
         let mut idx = 0;
         if let None = self.get_value(key, idx) {
             if self.is_rehashing() {
@@ -94,7 +94,7 @@ where
         return self.get_value(key, idx);
     }
 
-    pub fn get_mut(&mut self, key: &K) -> Option<&mut V> {
+    pub fn get_mut(&mut self, key: &K) -> Option<&mut DictEntry<K, V>> {
         self.do_rehash();
         let mut idx = 0;
         if let None = self.get_value(key, idx) {
@@ -122,20 +122,12 @@ where
         return dict_ht.remove(key);
     }
 
-    fn get_mut_value(&mut self, key: &K, idx: usize) -> Option<&mut V> {
-        let entry = self.dict_hts[idx].as_mut()?.get_mut_ref_entry(key);
-        if let Some(entry) = entry {
-            return entry.value.as_mut();
-        }
-        return None;
+    fn get_mut_value(&mut self, key: &K, idx: usize) -> Option<&mut DictEntry<K, V>> {
+        return self.dict_hts[idx].as_mut()?.get_mut_ref_entry(key);
     }
 
-    fn get_value(&self, key: &K, idx: usize) -> Option<&V> {
-        let entry = self.dict_hts[idx].as_ref()?.get_ref_entry(key);
-        if let Some(entry) = entry {
-            return entry.value.as_ref();
-        }
-        return None;
+    fn get_value(&self, key: &K, idx: usize) -> Option<&DictEntry<K, V>> {
+        return  self.dict_hts[idx].as_ref()?.get_ref_entry(key);
     }
 
     fn do_rehash(&mut self) {

@@ -16,11 +16,11 @@ impl Ttl {
     }
 
     pub fn apply(self, db: &mut Db) -> crate::Result<Frame> {
-        let value = db.get(&KedisKey::new(self.key));
-        let type_name = match value {
-            Some(value) => value.get_type(),
-            None => "none",
+        let entry = db.get_entry(&KedisKey::new(self.key));
+        let ttl = match entry {
+            Some(entry) => entry.key.get_ttl(),
+            None => "-2".to_string(),
         };
-        return Ok(Frame::Simple(type_name.into()));
+        return Ok(Frame::Simple(ttl));
     }
 }
