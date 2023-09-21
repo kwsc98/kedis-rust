@@ -1,3 +1,4 @@
+use crate::common::date_util;
 use crate::db::{Db, KedisKey};
 use crate::frame::Frame;
 
@@ -20,8 +21,10 @@ impl Set {
     }
 
     pub fn apply(self, db: &mut Db) -> crate::Result<Frame> {
+        let mut kedis_key = KedisKey::new(self.key);
+        kedis_key.set_ttl(1000000 + date_util::get_now_date_time_as_millis());
         let _dict = db
-            .insert(KedisKey::new(self.key), crate::db::Structure::String(self.value));
+            .insert(kedis_key, crate::db::Structure::String(self.value));
         return Ok(Frame::Simple("OK".into()));
     }
 }

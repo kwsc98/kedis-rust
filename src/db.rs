@@ -15,15 +15,15 @@ pub struct DbHandler {
 #[derive(Debug)]
 pub struct KedisKey {
     key: String,
-    ttl: Option<u128>,
+    ttl: i128,
 }
 
 impl KedisKey {
     pub fn new(key: String) -> Self {
-        return KedisKey { key, ttl: None };
+        return KedisKey { key, ttl: -1 };
     }
-    pub fn set_ttl(&mut self, ttl: u128) {
-        self.ttl = Some(ttl);
+    pub fn set_ttl(&mut self, ttl: i128) {
+        self.ttl = ttl;
     }
 }
 
@@ -153,11 +153,9 @@ impl Db {
         return false;
     }
 
-    fn check_expired(ttl: Option<u128>) -> bool {
-        if let Some(ttl) = ttl {
-            if ttl >= DateUtil::get_now_date_time_as_millis() {
-                return true;
-            }
+    fn check_expired(ttl: i128) -> bool {
+        if ttl >= 0 && ttl <= DateUtil::get_now_date_time_as_millis() {
+            return true;
         }
         return false;
     }
@@ -176,10 +174,13 @@ impl Structure {
 }
 
 impl KedisKey {
-    pub fn get_ttl(&self) -> String {
-        return match self.ttl   {
-            Some(ttl) => ttl.to_string(),
-            None => "-1".to_string(),
+    pub fn get_expired_by_seconds(&self) -> String {
+        let mut ttl = self.ttl - DateUtil::get_now_date_time_as_millis();
+        if ttl <= 0 {
+            ttl = -2;
+        } else {
+            ttl /= 1000;
         }
+        return ttl.to_string();
     }
 }

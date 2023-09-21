@@ -16,7 +16,7 @@ fn dict_test_1() {
     for idx in 0..2000000 {
         if let Some(value) = dict.get(&idx) {
             res += 1;
-            assert_eq!(idx, value - 1);
+            assert_eq!(idx, value.value.unwrap() - 1);
         }
     }
     assert_eq!(1000000, res);
@@ -37,8 +37,8 @@ fn dict_test_2() {
     for idx in 0..2000000 {
         if let Some(value) = dict.get_mut(&idx) {
             res += 1;
-            assert_eq!(idx, *value - 1);
-            *value += 1;
+            assert_eq!(idx, value.value.unwrap() - 1);
+            *value.value.as_mut().unwrap() += 1;
         }
     }
     assert_eq!(1000000, res);
@@ -46,8 +46,8 @@ fn dict_test_2() {
     for idx in 0..2000000 {
         if let Some(value) = dict.get_mut(&idx) {
             res += 1;
-            assert_eq!(idx, *value - 2);
-            *value += 1;
+            assert_eq!(idx, value.value.unwrap() - 2);
+            *value.value.as_mut().unwrap() += 1;
         }
     }
     assert_eq!(1000000, res);
@@ -68,8 +68,8 @@ fn dict_test_3() {
     for idx in 0..2000000 {
         if let Some(value) = dict.get_mut(&idx) {
             res += 1;
-            assert_eq!(idx, *value - 1);
-            *value += 1;
+            assert_eq!(idx, value.value.unwrap() - 1);
+            *value.value.as_mut().unwrap() += 1;
         }
     }
     assert_eq!(1000000, res);
@@ -80,7 +80,7 @@ fn dict_test_3() {
     for idx in 0..2000000 {
         if let Some(value) = dict.get_mut(&idx) {
             res += 1;
-            assert_eq!(idx, *value - 2);
+            assert_eq!(idx, value.value.unwrap() - 2);
         }
     }
     assert_eq!(1000000, res);
@@ -101,7 +101,7 @@ fn dict_test_4() {
     for idx in 0..2000000 {
         if let Some(value) = dict.get(&idx) {
             res += 1;
-            assert_eq!(idx, *value - 1);
+            assert_eq!(idx, value.value.unwrap() - 1);
         }
     }
     assert_eq!(1000000, res);

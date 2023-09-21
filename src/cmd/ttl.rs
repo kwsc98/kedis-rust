@@ -18,7 +18,7 @@ impl Ttl {
     pub fn apply(self, db: &mut Db) -> crate::Result<Frame> {
         let entry = db.get_entry(&KedisKey::new(self.key));
         let ttl = match entry {
-            Some(entry) => entry.key.get_ttl(),
+            Some(entry) => entry.key.get_expired_by_seconds(),
             None => "-2".to_string(),
         };
         return Ok(Frame::Simple(ttl));
