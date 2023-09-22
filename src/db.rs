@@ -100,6 +100,8 @@ impl Db {
                 Command::Scan(scan) => scan.apply(self),
                 Command::Type(scan) => scan.apply(self),
                 Command::Ttl(ttl) => ttl.apply(self),
+                Command::Exists(exists) => exists.apply(self),
+                Command::Expire(expire) => expire.apply(self),
                 _ => Err("Error".into()),
             };
             let _ = sender.send(frame);
@@ -136,10 +138,18 @@ impl Db {
         let entry = self.dict.get_mut(key)?;
         return entry.value.as_mut();
     }
-
     pub fn get_entry(&mut self, key: &KedisKey) -> Option<&DictEntry<KedisKey, Structure>> {
         self.remove_expired_key(key);
         return self.dict.get(key);
+    }
+
+    pub fn get_mut_entry(&mut self, key: &KedisKey) -> Option<&mut DictEntry<KedisKey, Structure>> {
+        self.remove_expired_key(key);
+        return self.dict.get_mut(key);
+    }
+
+    pub fn remove(&mut self, key: &KedisKey) -> Option<Structure> {
+        return self.dict.remove(key);
     }
 
     fn remove_expired_key(&mut self, key: &KedisKey) -> bool {
@@ -177,7 +187,7 @@ impl KedisKey {
     pub fn get_expired_by_seconds(&self) -> String {
         let mut ttl = self.ttl - DateUtil::get_now_date_time_as_millis();
         if ttl <= 0 {
-            ttl = -2;
+            ttl = -1;
         } else {
             ttl /= 1000;
         }

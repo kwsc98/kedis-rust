@@ -10,3 +10,5 @@ pub(crate) mod quit;
 pub(crate) mod client;
 pub(crate) mod r#type;
 pub(crate) mod ttl;
+pub(crate) mod exists;
+pub(crate) mod expire;

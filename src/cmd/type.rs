@@ -10,7 +10,7 @@ impl Type {
     pub fn parse_frames(frame: Frame) -> crate::Result<Type> {
         let key = frame
             .get_frame_by_index(1)
-            .ok_or("err command 'get'")?
+            .ok_or("err command 'type'")?
             .to_string();
         return Ok(Type { key });
     }

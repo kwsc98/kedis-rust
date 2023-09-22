@@ -10,7 +10,7 @@ impl Ttl {
     pub fn parse_frames(frame: Frame) -> crate::Result<Ttl> {
         let key = frame
             .get_frame_by_index(1)
-            .ok_or("err command 'get'")?
+            .ok_or("err command 'ttl'")?
             .to_string();
         return Ok(Ttl { key });
     }

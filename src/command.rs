@@ -11,6 +11,8 @@ use crate::cmd::ttl::Ttl;
 use crate::cmd::unknown::Unknown;
 use crate::frame::Frame;
 use crate:: cmd::info::Info;
+use crate::cmd::exists::Exists;
+use crate::cmd::expire::Expire;
 
 pub enum Command {
     Get(Get),
@@ -25,6 +27,8 @@ pub enum Command {
     Client(Client),
     Type(Type),
     Ttl(Ttl),
+    Exists(Exists),
+    Expire(Expire),
 }
 
 impl Command {
@@ -42,6 +46,8 @@ impl Command {
             "client" => Command::Client(Client::parse_frames(frame)?),
             "type" => Command::Type(Type::parse_frames(frame)?),
             "ttl" => Command::Ttl(Ttl::parse_frames(frame)?),
+            "exists" => Command::Exists(Exists::parse_frames(frame)?),
+            "expire" => Command::Expire(Expire::parse_frames(frame)?),
             _ => Command::Unknown(Unknown::parse_frames(frame)?),
         };
         return Ok(command);
