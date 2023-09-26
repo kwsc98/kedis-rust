@@ -1,12 +1,12 @@
 use crate::cmd::client::Client;
 use crate::cmd::config::Config;
-use crate::cmd::get::Get;
+use crate::cmd::string::get::Get;
 use crate::cmd::ping::Ping;
 use crate::cmd::quit::Quit;
 use crate::cmd::r#type::Type;
 use crate::cmd::scan::Scan;
 use crate::cmd::select::Select;
-use crate::cmd::set::Set;
+use crate::cmd::string::set::Set;
 use crate::cmd::ttl::Ttl;
 use crate::cmd::unknown::Unknown;
 use crate::frame::Frame;

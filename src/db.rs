@@ -124,6 +124,9 @@ impl Db {
     }
     pub fn insert(&mut self, key: KedisKey, value: Structure) -> Option<Structure> {
         self.remove_expired_key(&key);
+        if key.ttl > -1 {
+            self.dict.remove(&key);
+        }
         return self.dict.insert(key, value);
     }
 
